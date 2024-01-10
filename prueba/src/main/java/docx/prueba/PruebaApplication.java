@@ -27,13 +27,33 @@ public class PruebaApplication {
 		File doc = new File("C:/Desarrollo/Docx/prueba/FileFormat.docx");
 		System.out.println(doc);
 		WordprocessingMLPackage wordMLPackage = WordprocessingMLPackage.load(doc);
-		MainDocumentPart mainDocumentPart = wordMLPackage.getMainDocumentPart();
-		
-		java.util.HashMap mappings = new java.util.HashMap();
-		VariablePrepare.prepare(wordMLPackage);//see notes
-		mappings.put("myField", "foo");
-		wordMLPackage.getMainDocumentPart().variableReplace(mappings);
 
+		MainDocumentPart documentPart = wordMLPackage.getMainDocumentPart();
+
+		String xpath = "//w:r[w:t[contains(text(),'auditFindings')]]";
+
+		List<Object> list = documentPart.getJAXBNodesViaXPath(xpath, true);
+
+
+		// java.util.HashMap mappings = new java.util.HashMap();
+		// VariablePrepare.prepare(wordMLPackage);// see notes
+		// mappings.put("myField", "foo");
+		// wordMLPackage.getMainDocumentPart().variableReplace(mappings);
+
+		wordMLPackage.save(new File("C:/Desarrollo/Docx/prueba/FileFormat.docx"));
 	}
+
+
+	
+
+
+
+
+
+
+
+
+
+
 
 }
