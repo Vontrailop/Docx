@@ -7,15 +7,26 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.xml.bind.JAXBElement;
+
+import org.docx4j.XmlUtils;
 import org.docx4j.openpackaging.exceptions.Docx4JException;
 import org.docx4j.openpackaging.packages.WordprocessingMLPackage;
+import org.docx4j.openpackaging.parts.Parts;
+import org.docx4j.openpackaging.parts.WordprocessingML.HeaderPart;
+import org.docx4j.openpackaging.parts.WordprocessingML.MainDocumentPart;
+import org.docx4j.openpackaging.parts.relationships.Namespaces;
+import org.docx4j.openpackaging.parts.relationships.RelationshipsPart;
+import org.docx4j.relationships.Relationship;
 import org.docx4j.wml.ContentAccessor;
 import org.docx4j.wml.P;
 import org.docx4j.wml.R;
 import org.docx4j.wml.SdtBlock;
 import org.docx4j.wml.SdtPr;
 import org.docx4j.wml.SdtRun;
+import org.docx4j.wml.Tbl;
+import org.docx4j.wml.Tc;
 import org.docx4j.wml.Text;
+import org.docx4j.wml.Tr;
 
 public class FindWordAndReplace {
 
@@ -288,14 +299,105 @@ public class FindWordAndReplace {
         }
     }
 
+    private void findAndReplaceInHeader(WordprocessingMLPackage doc, String toFind, String replacement) {
+        MainDocumentPart mainDocumentPart = doc.getMainDocumentPart();
+        RelationshipsPart relsPart = mainDocumentPart.getRelationshipsPart();
+        List<Relationship> headerRels = relsPart.getRelationshipsByType(Namespaces.HEADER);
+
+        for (Relationship rel : headerRels) {
+            HeaderPart headerPart = (HeaderPart) relsPart.getPart(rel);
+
+            // Imprimir información sobre la cabecera (opcional, para depuración)
+            System.out.println("Cabecera encontrada.");
+
+            // Imprimir información sobre el contenido de la cabecera (opcional, para
+            // depuración)
+            System.out.println(
+                    "Contenido de la cabecera: " + XmlUtils.marshaltoString(headerPart.getJaxbElement(), true, true));
+            String texto = XmlUtils.marshaltoString(headerPart.getJaxbElement(), true, true);
+            //headerPart.setJaxbElement(null);
+
+
+            // Realizar búsqueda y reemplazo en el contenido de la cabecera
+            findAndReplaceInContentAccessor(headerPart.getContent(), toFind, replacement);
+        }
+    }
+
+    private void findAndReplaceInContentAccessor(List<Object> content, String toFind, String replacement) {
+        for (Object child : content) {
+            if (child instanceof JAXBElement) {
+                child = ((JAXBElement<?>) child).getValue();
+            }
+    
+            if (child instanceof SdtBlock) {
+                // ... (resto del código para manejar SdtBlock)
+            } else if (child instanceof ContentAccessor) {
+                ContentAccessor caElement = (ContentAccessor) child;
+                if (child instanceof P) {
+                    findAndReplaceInTextList(((P) child).getContent(), toFind, replacement);
+                } else if (child instanceof Tbl) {
+                    findAndReplaceInTable((Tbl) child, toFind, replacement);
+                } else {
+                    findAndReplaceInContentAccessor(caElement.getContent(), toFind, replacement);
+                }
+            }
+        }
+    }
+
+    private void findAndReplaceInTables(List<Object> content, String toFind, String replacement) {
+        for (Object child : content) {
+            if (child instanceof JAXBElement) {
+                child = ((JAXBElement<?>) child).getValue();
+            }
+    
+            if (child instanceof Tbl) {
+                findAndReplaceInTable((Tbl) child, toFind, replacement);
+            } else if (child instanceof ContentAccessor) {
+                ContentAccessor caElement = (ContentAccessor) child;
+                findAndReplaceInTables(caElement.getContent(), toFind, replacement);
+            }
+        }
+    }
+    
+    private void findAndReplaceInTable(Tbl table, String toFind, String replacement) {
+        List<Object> rows = table.getContent();
+        for (Object row : rows) {
+            if (row instanceof Tr) {
+                List<Object> cells = ((Tr) row).getContent();
+                for (Object cell : cells) {
+                    if (cell instanceof Tc) {
+                        List<Object> cellContent = ((Tc) cell).getContent();
+                        findAndReplaceInContentAccessor(cellContent, toFind, replacement);
+                    }
+                }
+            }
+        }
+    }
+    
+
+    private void findAndReplaceInTextList(List<Object> textList, String toFind, String replacement) {
+        for (Object textObject : textList) {
+            if (textObject instanceof Text) {
+                Text text = (Text) textObject;
+                String oldValue = text.getValue();
+                String newValue = oldValue.replaceAll(Pattern.quote(toFind), replacement);
+                text.setValue(newValue);
+            }
+        }
+    }
+
     public static void main(String[] args) {
         String origin = System.getProperty("user.home") + "/1. OFICIO DE COMISIÓN.docx";
         String destiny = System.getProperty("user.home") + "/1.docx";
+        String buscado = "folioInspeccion", valorReemplazo = "155608";
 
-        FindWordAndReplace th = new FindWordAndReplace("folioInspeccion");
+        FindWordAndReplace th = new FindWordAndReplace("fundamento");
         try {
-           WordprocessingMLPackage wmlPackage = WordprocessingMLPackage.load(new java.io.File(origin));
-            th.replaceWord(wmlPackage, "folioInspeccion", "155608");
+            WordprocessingMLPackage wmlPackage = WordprocessingMLPackage.load(new java.io.File(origin));
+            th.replaceWord(wmlPackage, buscado, valorReemplazo);
+
+            th.findAndReplaceInHeader(wmlPackage, buscado, valorReemplazo);
+
             wmlPackage.save(new java.io.File(destiny));
 
         } catch (Docx4JException e) {
