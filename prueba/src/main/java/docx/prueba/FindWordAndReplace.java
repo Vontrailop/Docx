@@ -315,8 +315,7 @@ public class FindWordAndReplace {
             System.out.println(
                     "Contenido de la cabecera: " + XmlUtils.marshaltoString(headerPart.getJaxbElement(), true, true));
             String texto = XmlUtils.marshaltoString(headerPart.getJaxbElement(), true, true);
-            //headerPart.setJaxbElement(null);
-
+            // headerPart.setJaxbElement(null);
 
             // Realizar búsqueda y reemplazo en el contenido de la cabecera
             findAndReplaceInContentAccessor(headerPart.getContent(), toFind, replacement);
@@ -328,7 +327,7 @@ public class FindWordAndReplace {
             if (child instanceof JAXBElement) {
                 child = ((JAXBElement<?>) child).getValue();
             }
-    
+
             if (child instanceof SdtBlock) {
                 // ... (resto del código para manejar SdtBlock)
             } else if (child instanceof ContentAccessor) {
@@ -349,7 +348,7 @@ public class FindWordAndReplace {
             if (child instanceof JAXBElement) {
                 child = ((JAXBElement<?>) child).getValue();
             }
-    
+
             if (child instanceof Tbl) {
                 findAndReplaceInTable((Tbl) child, toFind, replacement);
             } else if (child instanceof ContentAccessor) {
@@ -358,7 +357,7 @@ public class FindWordAndReplace {
             }
         }
     }
-    
+
     private void findAndReplaceInTable(Tbl table, String toFind, String replacement) {
         List<Object> rows = table.getContent();
         for (Object row : rows) {
@@ -373,7 +372,6 @@ public class FindWordAndReplace {
             }
         }
     }
-    
 
     private void findAndReplaceInTextList(List<Object> textList, String toFind, String replacement) {
         for (Object textObject : textList) {
