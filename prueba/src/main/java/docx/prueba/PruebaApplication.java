@@ -40,80 +40,71 @@ public class PruebaApplication {
 
 		wordMLPackage.getMainDocumentPart().variableReplace(mappings);
 
+		// Bloque para reemplazar variables en el encabezado ---------------------------------------------------------------------------------
+		// 1.- Saca el encabezado del documento: en este caso saca el encabezado de la página 1
 		SectionWrapper section = wordMLPackage.getDocumentModel().getSections().get(0);
 		if (section.getHeaderFooterPolicy() != null) {
+
+			// 2.- Se pasa la referencia del encabezado a un HeaderPart para manipularlo facilmente
 			HeaderPart header = section.getHeaderFooterPolicy().getHeader(0);
 
+			// 3.- Itera los objetos del encabezado
 			for (Object obj : header.getContent()) {
+
+				// filtro para separar el P de la tabla del encabezado
 				if (obj instanceof JAXBElement) {
+
+					// filtro para traer la tabla del encabezado
 					if(((JAXBElement<?>) obj).getValue() instanceof Tbl) {
 						Tbl table = (Tbl) ((JAXBElement<?>) obj).getValue();
 
-						for(Object row : table.getContent()) {
-							if(row instanceof Tr) {
+						// PUNTO ITERABLE - A PARTIR DE AQUÍ SE PUEDE MODIFICAR PARA CREAR UN REEMPLAZO DINÁMICO
+						// 4.- Se obtiene la fila con la variable a reemplazar (se puede iterar)
+						// Nota: esta fila corresponde a las celdas con la imagen, asunto y ${folioInspeccion}
+						Object row = table.getContent().get(3);
+						if(row instanceof Tr) {
 
-								for(Object cell : ((Tr) row).getContent()) {
-									Tc tCell = (Tc) ((JAXBElement<?>) cell).getValue();
+							// 5.- Se obtiene el la celda contenedora de la variable
+							// (no se puede iterar: el index 2 corresponde a la 3ra columna de la tabla)
+							Object cell = ((Tr) row).getContent().get(2);
+							Tc data = (Tc) ((JAXBElement<?>) cell).getValue();
 
-									setTextInCell(tCell, "FolioNuevoDeLaInspección");
-								}
-							}
+							// 6.- Se saca el parrafo de la celda para conservar el formato del parrafo
+							P paragraph = (P) data.getContent().get(0);
+
+							// Aquí puede estar lo de iterar los Run's dentro del parrafo para sacarles
+							// los Text y de esta manera ir concatenando los textos para validar el valor
+							// de la variable con el key del HashMap
+
+							// 7.- Se hace el reemplazo de la variable
+							setTextInParagraph(paragraph, "Nuevo texto");
 						}
 					}
 				}
 			}
-
-			String xpath = "w:r[w:t[contains(text(),'myField')]]";
-			List<Object> list = section.getHeaderFooterPolicy().getDefaultHeader().getJAXBNodesViaXPath(xpath, true);
-
-
-			section.getHeaderFooterPolicy().getDefaultHeader().variableReplace(mappings);
-			section.getHeaderFooterPolicy().getDefaultFooter().variableReplace(mappings);
-
 		}
+		// Bloque para reemplazar variables en el encabezado ---------------------------------------------------------------------------------
 
 		wordMLPackage.save(new File("/Users/alcoker/Desktop/Docx/prueba/Resultado.docx"));
 		//wordMLPackage.save(new File("C:/Desarrollo/Docx/prueba/Resultado.docx"));
 	}
 
-//	private static String getTextInCell(Tc cell) {
-//		StringBuilder text = new StringBuilder();
-//		List<Object> cellContent = cell.getContent();
-//		for (Object obj : cellContent) {
-//			if (obj instanceof P) {
-//				P paragraph = (P) obj;
-//				text.append(getTextInParagraph(paragraph));
-//			}
-//		}
-//		return text.toString();
-//	}
-//
-//	private static String getTextInParagraph(P paragraph) {
-//		StringBuilder text = new StringBuilder();
-//		List<Object> texts = paragraph.getContent();
-//		for (Object textObj : texts) {
-//			if (textObj instanceof Text) {
-//				Text t = (Text) textObj;
-//				text.append(t.getValue());
-//			}
-//		}
-//		return text.toString();
-//	}
+	// MÉTODO PARA REMPLAZAR LA VARIABLE CONSERVANDO LAS PROPIEDADES Y FORMATO
+	private static void setTextInParagraph(P paragraph, String newText) {
 
-	private static void setTextInCell(Tc cell, String newText) {
-		// Crear un nuevo run
-		R newRun = new R();
+		// 1.- Sacar al menos un Run para conservar el formato del texto
+		R run = (R) paragraph.getContent().get(0);
 
-		// Crear un nuevo párrafo con el nuevo run
-		P newParagraph = new P();
-		newParagraph.getContent().add(newRun);
+		// 2.- Limpiar el contenido del párrafo y del run
+		paragraph.getContent().clear();
+		run.getContent().clear();
 
-		// Agregar el texto al nuevo run
+		// 3.- Asignar el run al parrafo
+		paragraph.getContent().add(run);
+
+		// 4.- Agregar el texto al run
 		Text newTextObj = new Text();
 		newTextObj.setValue(newText);
-		newRun.getContent().add(newTextObj);
-
-		// Agregar el nuevo párrafo al contenido de la celda
-		cell.getContent().add(newParagraph);
+		run.getContent().add(newTextObj);;
 	}
 }
