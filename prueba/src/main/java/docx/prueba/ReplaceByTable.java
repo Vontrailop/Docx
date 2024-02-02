@@ -1,28 +1,40 @@
 package docx.prueba;
+
+import org.docx4j.jaxb.Context;
 import org.docx4j.openpackaging.packages.WordprocessingMLPackage;
 import org.docx4j.openpackaging.parts.WordprocessingML.MainDocumentPart;
-import org.docx4j.wml.Body;
-import org.docx4j.wml.Document;
-import org.docx4j.wml.P;
-import org.docx4j.wml.Tbl;
-import org.docx4j.wml.Tc;
-import org.docx4j.wml.Tr;
+import org.docx4j.wml.*;
 
 import java.io.File;
+
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+
+import javax.xml.bind.JAXBElement;
 
 public class ReplaceByTable {
-
     public static void main(String[] args) {
         try {
             // Cargar el documento
-            WordprocessingMLPackage wordMLPackage = WordprocessingMLPackage.load(new File("C:/Desarrollo/Docx/prueba/Prueba2.docx"));
+            WordprocessingMLPackage wordMLPackage = WordprocessingMLPackage
+                    .load(new File("C:/Desarrollo/Docx/prueba/Prueba2.docx"));
             MainDocumentPart mainDocumentPart = wordMLPackage.getMainDocumentPart();
             Document document = mainDocumentPart.getJaxbElement();
 
             // Buscar y reemplazar el marcador con la tabla
             String marker = "${INSERTAR_TABLA_AQUI}";
-            Tbl table = createSampleTable(); // Método para crear la tabla que deseas insertar
+
+            // Crear un mapa con los datos que deseas insertar en la tabla
+            Map<String, String> datos = new LinkedHashMap<>();
+            datos.put("Clave1", "Valor1");
+            datos.put("Clave2", "Valor2");
+            datos.put("Clave3", "Valor3");
+
+            Tbl table = createTableFromMap(datos);
+
+            setCellBackgroundColor(table, 0, "FF0000");
+
             findAndReplaceMarker(document, marker, table);
 
             // Guardar los cambios
@@ -33,42 +45,84 @@ public class ReplaceByTable {
         }
     }
 
-    // Método para crear una tabla de ejemplo (puedes personalizarla según tus necesidades)
-    private static Tbl createSampleTable() {
+    private static Tbl createTableFromMap(Map<String, String> datos) {
         Tbl table = new Tbl();
-        for (int i = 0; i < 3; i++) {
+        for (Map.Entry<String, String> entry : datos.entrySet()) {
             Tr row = new Tr();
-            for (int j = 0; j < 3; j++) {
-                Tc cell = new Tc();
-                cell.getContent().add("Row " + (i + 1) + ", Col " + (j + 1));
-                row.getContent().add(cell);
-            }
+
+            // Celda de la clave
+            Tc cell1 = createTableCell(entry.getKey());
+
+            // Celda del valor
+            Tc cell2 = createTableCell(entry.getValue());
+
+            // Agregar las celdas a la fila
+            row.getContent().add(cell1);
+            row.getContent().add(cell2);
+
+            // Agregar la fila a la tabla
             table.getContent().add(row);
         }
         return table;
     }
 
+    private static Tc createTableCell(String text) {
+        Tc cell = new Tc();
+        P p = new P();
+        R run = new R();
+        Text t = new Text();
+        t.setValue(text);
+        run.getContent().add(t);
+        p.getContent().add(run);
+        cell.getContent().add(p);
+        return cell;
+    }
+
     // Método para buscar y reemplazar el marcador con la tabla
     private static void findAndReplaceMarker(Document document, String marker, Tbl table) {
-        List<Object> paragraphs = getAllParagraphs(document.getBody());
-        for (Object obj : paragraphs) {
+        List<Object> paragraphs = document.getBody().getContent();
+        for (int i = 0; i < paragraphs.size(); i++) {
+            Object obj = paragraphs.get(i);
             if (obj instanceof P) {
                 P p = (P) obj;
                 String text = p.toString();
                 if (text.contains(marker)) {
                     // Reemplazar el marcador con la tabla
-                    Body body = (Body) p.getParent();
-                    int index = body.getContent().indexOf(p);
-                    body.getContent().remove(index);
-                    body.getContent().add(index, table);
+                    document.getBody().getContent().remove(i);
+                    document.getBody().getContent().add(i, table);
                     break;
                 }
             }
         }
     }
 
-    // Método para obtener todos los párrafos del documento
-    private static List<Object> getAllParagraphs(Body body) {
-        return body.getContent();
+    private static void setCellBackgroundColor(Tbl table, int columnIndex, String colorHex) {
+        List<Object> rows = table.getContent();
+        for (Object row : rows) {
+            if (row instanceof JAXBElement) {
+                Object obj = ((JAXBElement<?>) row).getValue();
+                if (obj instanceof org.docx4j.wml.Tr) {
+                    org.docx4j.wml.Tr tr = (org.docx4j.wml.Tr) obj;
+                    List<Object> cells = tr.getContent();
+                    if (cells.size() > columnIndex && cells.get(columnIndex) instanceof JAXBElement) {
+                        Object cellObj = ((JAXBElement<?>) cells.get(columnIndex)).getValue();
+                        if (cellObj instanceof Tc) {
+                            Tc tc = (Tc) cellObj;
+
+                            // Crear un nuevo objeto de propiedades de celda (TcPr)
+                            TcPr tcPr = Context.getWmlObjectFactory().createTcPr();
+
+                            // Crear un nuevo objeto de propiedades de fondo de celda (CTShd)
+                            org.docx4j.wml.CTShd ctShd = new org.docx4j.wml.CTShd();
+                            ctShd.setFill(colorHex); // Establecer el color en formato hexadecimal
+                            tcPr.setShd(ctShd);
+
+                            // Aplicar las propiedades de la celda
+                            tc.setTcPr(tcPr);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
